@@ -1,12 +1,13 @@
 #include "co.h"
 #include <stdio.h>
-void Print() {
-  for (int i = 0; i < 10; i++) {
-    printf("%d\n", i);
-  }
+int a = 10;
+void Print(void *args) {
+  a++;
+  printf("1231asdfasdf\n");
+	printf("%d\n",a);
 }
 
 int main() {
-  co_start("A", Print, NULL);
+  co_start("A", &Print, NULL);
   return 0;
 }
