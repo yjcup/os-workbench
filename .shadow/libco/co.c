@@ -98,7 +98,7 @@ struct context {
 };
 
 struct co {
-  char *name;
+  char name[128];
   void (*func)(void *); // entry pointer
   void *arg;
   enum co_status status; // coroutine status
