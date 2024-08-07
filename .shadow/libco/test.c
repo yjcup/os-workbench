@@ -2,12 +2,16 @@
 #include <stdio.h>
 int a = 10;
 void Print(void *args) {
-  a++;
-  printf("1231asdfasdf\n");
-	printf("%d\n",a);
+	char temp=*(char*) args;
+	for(int i=0;i<10;i++){
+		printf("%c\n",temp);
+	}
 }
 
 int main() {
-  co_start("A", &Print, NULL);
+	char a = 'A';
+	char b = 'B';
+  co_start("A", &Print, &a);
+  co_start("A", &Print, &b);
   return 0;
 }
