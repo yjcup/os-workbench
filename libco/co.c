@@ -1,8 +1,10 @@
 #include "co.h"
+#include <assert.h>
 #include <setjmp.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <ucontext.h>
 
 #define STACK_SIZE 1024 * 8
@@ -13,13 +15,72 @@
 // 这里的调度算法就是随机的
 //
 //
-struct co *current;      // point to the current coroutine
-struct co *queue = NULL; // 可执行队列
-                         //
+//
+//
 
-void add(struct co *co) {}
+typedef struct queue {
+  struct co *co;
+  struct queue *next;
+} queue;
 
-struct co *getCoRandomly() { return queue; }
+queue *head = NULL;
+int len = 0;
+struct co *current = NULL;
+
+void add(struct co *co) {
+  queue *ptr = malloc(sizeof(queue));
+  if (ptr == NULL) {
+    // Handle memory allocation failure
+    return;
+  }
+  ptr->co = co;
+  ptr->next = NULL;
+  if (head == NULL) {
+    head = ptr;
+  } else {
+    queue *temp = head;
+    while (temp->next != NULL) {
+      temp = temp->next;
+    }
+    temp->next = ptr;
+    len++;
+  }
+}
+
+void delete_co(struct co *co) {
+  if (head == NULL) {
+    return;
+  }
+  queue *temp = head;
+  queue *prev = NULL;
+  while (temp != NULL && temp->co != co) {
+    prev = temp;
+    temp = temp->next;
+  }
+  if (temp != NULL) {
+    if (prev == NULL) {
+      head = temp->next;
+    } else {
+      prev->next = temp->next;
+    }
+    len--;
+    free(temp);
+  }
+}
+
+struct co *getCoRandomly() {
+
+  if (head == NULL) {
+    return NULL;
+  } else {
+    int index = rand() % len;
+    queue *temp = head;
+    for (int i = 0; i < index; i++) {
+      temp = temp->next;
+    }
+    return temp->co;
+  }
+}
 
 enum co_status {
   CO_NEW = 1, // create
@@ -37,7 +98,7 @@ struct context {
 };
 
 struct co {
-  char *name;
+  char name[128];
   void (*func)(void *); // entry pointer
   void *arg;
   enum co_status status; // coroutine status
@@ -48,6 +109,21 @@ struct co {
                              // how to implement coroutine switching
                              //
 };
+
+// switch the rsp
+void save_context(struct co *co) {
+
+  // switch
+  // setjmp
+  void *addr = co->stack;
+  asm inline("");
+  int a = setjmp(co->context.jmp);
+  if (a == 1) {
+    co->func(co->arg);
+    co->status = CO_DEAD;
+  }
+}
+
 // function pointer  rettype(*func)(args list);
 // void*??
 // 一个线程就是共享内存和独立堆栈
@@ -57,18 +133,27 @@ struct co *co_start(const char *name, void (*func)(void *), void *arg) {
   struct co *co = malloc(sizeof(struct co));
   co->func = func;
   co->arg = arg;
-  co->name = name;
+  strcpy(co->name, name);
   co->status = CO_NEW;
   // add the coroutine to the queue
   add(co);
+  save_context(co);
   return co;
 }
 
 // 表示当前协程需要等待，知道co协程执行完才能继续执行
 // main
 // 函数也是一个协程，当我调用这个函数的时候，只需要将co加入waiter之后进行切换
-// zhuyi co_wait执行的孙旭
-void co_wait(struct co *co) {}
+// zhuyi co_wait执行的程序
+void co_wait(struct co *co) {
+
+  // 判断当前显示是否执行完成，如果没有就yield
+  // 执行完成就释放当前线程
+  if (co->status == CO_DEAD) {
+
+  } else {
+  }
+}
 // co_wait(co1)那我需要等待co1执行完成才能继续执行
 // 此时我需要将co1加入到当前线程的co1wait中
 
@@ -99,7 +184,5 @@ void co_yield () {
     struct co *temp = getCoRandomly();
     current = temp;
     longjmp(current->context.jmp, 1);
-  } else {
-    // 恢复继续执行
   }
 }
